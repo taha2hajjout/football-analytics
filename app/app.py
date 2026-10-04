@@ -298,20 +298,22 @@ section[data-testid="stSidebar"] button .material-symbols-rounded::after {
       /* iPhone safe area */
       padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-  .mob-nav a {
+  .mob-nav button {
       flex: 1; display: flex; flex-direction: column;
       align-items: center; justify-content: center; gap: 3px;
-      text-decoration: none; color: #4a5568;
+      background: none; border: none; outline: none;
+      color: #4a5568; cursor: pointer;
       font-size: 0.53rem; font-weight: 700;
       text-transform: uppercase; letter-spacing: 0.4px;
       -webkit-tap-highlight-color: transparent;
-      min-height: 44px;  /* WCAG touch target */
+      min-height: 44px;
       transition: color 0.12s;
+      font-family: 'Inter', sans-serif;
   }
-  .mob-nav a.act          { color: #00ff9d; }
-  .mob-nav a:active       { opacity: 0.7; }
-  .mob-nav .ni            { font-size: 1.35rem; line-height: 1; }
-  .mob-nav a.act .ni      { filter: drop-shadow(0 0 6px rgba(0,255,157,0.5)); }
+  .mob-nav button.act          { color: #00ff9d; }
+  .mob-nav button:active       { opacity: 0.7; }
+  .mob-nav .ni                 { font-size: 1.35rem; line-height: 1; }
+  .mob-nav button.act .ni      { filter: drop-shadow(0 0 6px rgba(0,255,157,0.5)); }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -359,8 +361,8 @@ with st.sidebar:
 
 # ── Mobile bottom nav (rendered on every page) ───────────────────────────────
 _nav_links = "".join(
-    f'<a href="?page={p}" class="{"act" if page == p else ""}">'
-    f'<span class="ni">{NAV_ICONS[p]}</span>{p}</a>'
+    f'<button onclick="window.parent.location.href=\'?page={p}\'" class="{"act" if page == p else ""}">'
+    f'<span class="ni">{NAV_ICONS[p]}</span>{p}</button>'
     for p in PAGES
 )
 st.markdown(f'<nav class="mob-nav">{_nav_links}</nav>', unsafe_allow_html=True)
