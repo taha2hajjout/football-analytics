@@ -1,0 +1,7 @@
+requests>=2.32.3       # makes HTTP calls to the football API
+pymongo>=4.10.1        # connects Python to MongoDB
+streamlit>=1.40.1      # builds the web UI with pure Python, no HTML needed
+apscheduler>=3.10.4    # runs scheduled tasks (daily auto-update)
+pandas>=2.3.0          # organises data into tables — 2.3+ has Python 3.14 wheels
+plotly>=5.24.1         # draws interactive charts
+python-dotenv>=1.0.1   # reads your .env file into Python variables

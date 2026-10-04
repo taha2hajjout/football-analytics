@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+
+  mongodb:
+    image: mongo:7
+    container_name: football_db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  app:
+    build: .                          # build using the Dockerfile in this folder
+    container_name: football_app
+    ports:
+      - "8501:8501"                   # your browser connects to localhost:8501
+    depends_on:
+      - mongodb                       # wait for MongoDB to start before starting the app
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017
+      # inside Docker, containers talk to each other by service name ("mongodb")
+      # NOT "localhost" — localhost inside a container means the container itself
+      - FOOTBALL_API_TOKEN=${FOOTBALL_API_TOKEN}
+      # ${...} reads the value from your .env file and passes it into the container
+    volumes:
+      - .:/app                        # mirror your local files into the container
+      # this means edits you make to the code are reflected without rebuilding
+
+volumes:
+  mongo_data:

@@ -1,0 +1,18 @@
+# Secrets — never commit these
+.env
+.streamlit/secrets.toml
+
+# Dev / preview tools
+mobile_preview.html
+venv/
+.claude/
+dashboard/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Docker volumes (not code)
+mongo_data/

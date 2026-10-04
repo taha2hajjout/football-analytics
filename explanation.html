@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Football Analytics — Code Explained</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f4f6f9; color: #2d3748; font-size: 14px; }
+
+  /* Cover */
+  .cover { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: white; min-height: 100vh; display: flex; flex-direction: column;
+    justify-content: center; align-items: center; text-align: center; padding: 40px; page-break-after: always; }
+  .cover h1 { font-size: 3em; font-weight: 800; letter-spacing: -1px; margin-bottom: 16px; }
+  .cover .subtitle { font-size: 1.3em; color: #90cdf4; margin-bottom: 40px; }
+  .cover .badge { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 50px; padding: 8px 24px; display: inline-block; margin: 6px; font-size: 0.9em; }
+  .cover .stack { margin-top: 40px; }
+
+  /* TOC */
+  .toc { background: white; max-width: 900px; margin: 40px auto; border-radius: 16px;
+    padding: 40px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); page-break-after: always; }
+  .toc h2 { font-size: 1.8em; margin-bottom: 24px; color: #1a1a2e; border-bottom: 3px solid #4299e1; padding-bottom: 12px; }
+  .toc ol { padding-left: 24px; }
+  .toc li { padding: 8px 0; font-size: 1.05em; color: #4a5568; }
+  .toc li span { color: #718096; font-size: 0.9em; margin-left: 8px; }
+
+  /* Architecture diagram */
+  .arch { background: white; max-width: 900px; margin: 40px auto; border-radius: 16px;
+    padding: 40px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); page-break-after: always; }
+  .arch h2 { font-size: 1.8em; margin-bottom: 24px; color: #1a1a2e; border-bottom: 3px solid #48bb78; padding-bottom: 12px; }
+  .diagram { background: #1e1e1e; border-radius: 12px; padding: 32px; color: #a8ff78;
+    font-family: 'Courier New', monospace; font-size: 0.95em; line-height: 1.9; white-space: pre; overflow-x: auto; }
+
+  /* File sections */
+  .file-section { background: white; max-width: 900px; margin: 40px auto; border-radius: 16px;
+    padding: 40px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); page-break-before: always; }
+  .file-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px;
+    padding-bottom: 16px; border-bottom: 3px solid; }
+  .file-header.blue { border-color: #4299e1; }
+  .file-header.green { border-color: #48bb78; }
+  .file-header.purple { border-color: #9f7aea; }
+  .file-header.orange { border-color: #ed8936; }
+  .file-header.red { border-color: #fc8181; }
+  .file-icon { font-size: 2.5em; }
+  .file-title h2 { font-size: 1.5em; color: #1a1a2e; }
+  .file-title p { color: #718096; margin-top: 4px; }
+
+  /* Purpose box */
+  .purpose { background: #ebf8ff; border-left: 4px solid #4299e1; border-radius: 0 8px 8px 0;
+    padding: 16px 20px; margin-bottom: 28px; }
+  .purpose strong { color: #2b6cb0; display: block; margin-bottom: 6px; }
+  .purpose p { color: #4a5568; line-height: 1.6; }
+
+  /* Code block */
+  .code-block { background: #1e1e1e; border-radius: 12px; padding: 24px;
+    margin-bottom: 28px; overflow-x: auto; }
+  .code-block pre { font-family: 'Courier New', monospace; font-size: 0.85em; line-height: 1.7; color: #d4d4d4; }
+  .kw { color: #569cd6; }      /* keywords */
+  .fn { color: #dcdcaa; }      /* functions */
+  .st { color: #ce9178; }      /* strings */
+  .cm { color: #6a9955; }      /* comments */
+  .nb { color: #9cdcfe; }      /* variables */
+  .nm { color: #b5cea8; }      /* numbers */
+  .op { color: #d4d4d4; }      /* operators */
+
+  /* Explanation table */
+  .exp-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  .exp-table th { background: #2d3748; color: white; padding: 12px 16px; text-align: left; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px; }
+  .exp-table th:first-child { width: 60px; border-radius: 8px 0 0 0; }
+  .exp-table th:last-child { border-radius: 0 8px 0 0; }
+  .exp-table tr:nth-child(even) { background: #f7fafc; }
+  .exp-table tr:hover { background: #ebf8ff; }
+  .exp-table td { padding: 11px 16px; border-bottom: 1px solid #e2e8f0; vertical-align: top; line-height: 1.6; }
+  .exp-table td:first-child { font-weight: 700; color: #4299e1; font-family: monospace; text-align: center; }
+  .exp-table td:nth-child(2) { font-family: 'Courier New', monospace; font-size: 0.82em;
+    background: #2d3748; color: #a8dadc; white-space: nowrap; }
+  .exp-table td:last-child { color: #4a5568; }
+
+  /* Concept boxes */
+  .concept { display: flex; gap: 12px; background: #fffaf0; border: 1px solid #fbd38d;
+    border-radius: 10px; padding: 16px; margin: 12px 0; }
+  .concept .icon { font-size: 1.5em; flex-shrink: 0; }
+  .concept .text strong { color: #c05621; display: block; margin-bottom: 4px; }
+  .concept .text p { color: #744210; font-size: 0.92em; line-height: 1.6; }
+
+  .tip { display: flex; gap: 12px; background: #f0fff4; border: 1px solid #9ae6b4;
+    border-radius: 10px; padding: 16px; margin: 12px 0; }
+  .tip .icon { font-size: 1.5em; flex-shrink: 0; }
+  .tip .text strong { color: #276749; display: block; margin-bottom: 4px; }
+  .tip .text p { color: #22543d; font-size: 0.92em; line-height: 1.6; }
+
+  h3 { font-size: 1.15em; color: #2d3748; margin: 28px 0 14px; padding-left: 12px;
+    border-left: 4px solid #4299e1; }
+
+  @media print {
+    body { background: white; }
+    .file-section, .toc, .arch { box-shadow: none; margin: 0; border-radius: 0;
+      max-width: 100%; padding: 24px; }
+    .cover { min-height: auto; padding: 60px 40px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ COVER ═══════════════════ -->
+<div class="cover">
+  <div style="font-size:5em; margin-bottom:20px;">⚽</div>
+  <h1>Football Analytics</h1>
+  <p class="subtitle">Complete Code Documentation — Every Line Explained</p>
+  <div class="stack">
+    <span class="badge">🐍 Python 3.12</span>
+    <span class="badge">🐋 Docker</span>
+    <span class="badge">🍃 MongoDB</span>
+    <span class="badge">📊 Streamlit</span>
+    <span class="badge">🔮 Monte Carlo Simulation</span>
+  </div>
+  <p style="margin-top:48px; color:#a0aec0; font-size:0.9em;">
+    Premier League data · Live standings · Championship predictions
+  </p>
+</div>
+
+<!-- ═══════════════════ TABLE OF CONTENTS ═══════════════════ -->
+<div class="toc">
+  <h2>📋 Table of Contents</h2>
+  <ol>
+    <li>Project Architecture <span>— how all the pieces fit together</span></li>
+    <li><code>docker-compose.yml</code> <span>— starts MongoDB and the app</span></li>
+    <li><code>Dockerfile</code> <span>— builds the Python app container</span></li>
+    <li><code>.env</code> &amp; <code>requirements.txt</code> <span>— configuration and dependencies</span></li>
+    <li><code>fetcher/fetcher.py</code> <span>— downloads data from the football API</span></li>
+    <li><code>predictor/predictor.py</code> <span>— Monte Carlo simulation for league winner</span></li>
+    <li><code>scheduler/scheduler.py</code> <span>— automatic daily data refresh</span></li>
+    <li><code>app/app.py</code> <span>— the Streamlit web dashboard</span></li>
+  </ol>
+</div>
+
+<!-- ═══════════════════ ARCHITECTURE ═══════════════════ -->
+<div class="arch">
+  <h2>🏗️ Project Architecture</h2>
+  <div class="diagram">
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                     YOUR MACHINE (Windows)                      │
+  │                                                                 │
+  │   ┌─────────────────────────────────────────────────────────┐  │
+  │   │                  DOCKER CONTAINERS                      │  │
+  │   │                                                         │  │
+  │   │  ┌──────────────┐        ┌──────────────────────────┐  │  │
+  │   │  │   MongoDB    │◄──────►│    Python App            │  │  │
+  │   │  │  Container   │        │    Container             │  │  │
+  │   │  │  port 27017  │        │  fetcher + predictor     │  │  │
+  │   │  │              │        │  scheduler + streamlit   │  │  │
+  │   │  │  stores all  │        │  port 8501               │  │  │
+  │   │  │  your data   │        └──────────────────────────┘  │  │
+  │   │  └──────────────┘                    ▲                  │  │
+  │   └─────────────────────────────────────-│──────────────────┘  │
+  │                                          │                      │
+  │                              ┌───────────┴──────────┐          │
+  │                              │  football-data.org   │          │
+  │                              │  Free API (internet) │          │
+  │                              └──────────────────────┘          │
+  │                                                                 │
+  │   Your Browser → http://localhost:8501 → sees the dashboard    │
+  └─────────────────────────────────────────────────────────────────┘
+
+  DATA FLOW:
+  API ──► fetcher.py ──► MongoDB ──► app.py ──► your browser
+                                ──► predictor.py ──► MongoDB ──► app.py
+  </div>
+
+  <div class="concept" style="margin-top:24px;">
+    <span class="icon">💡</span>
+    <div class="text">
+      <strong>Why Docker?</strong>
+      <p>Docker packages your app and its dependencies into an isolated "container" — like a mini virtual machine.
+      This means your app runs the same way on every computer, and Windows' Smart App Control policy
+      cannot block code running inside containers.</p>
+    </div>
+  </div>
+
+  <div class="concept">
+    <span class="icon">🍃</span>
+    <div class="text">
+      <strong>Why MongoDB (NoSQL)?</strong>
+      <p>The football API returns data as JSON (nested objects). MongoDB stores JSON documents natively —
+      no need to design rigid tables like in SQL. You just save what you receive.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ FILE 1: docker-compose.yml ═══════════════════ -->
+<div class="file-section">
+  <div class="file-header blue">
+    <span class="file-icon">🐋</span>
+    <div class="file-title">
+      <h2>docker-compose.yml</h2>
+      <p>Tells Docker what containers to create and how they connect to each other</p>
+    </div>
+  </div>
+
+  <div class="purpose">
+    <strong>Purpose</strong>
+    <p>Docker Compose is a tool that lets you define and run multiple containers with one command
+    (<code>docker-compose up</code>). Instead of starting MongoDB and your app separately,
+    this file describes both and Docker handles everything.</p>
+  </div>
+
+  <div class="code-block"><pre>
+<span class="nm">version</span><span class="op">:</span> <span class="st">"3.8"</span>
+
+<span class="nb">services</span><span class="op">:</span>
+
+  <span class="nm">mongodb</span><span class="op">:</span>
+    <span class="nb">image</span><span class="op">:</span> <span class="st">mongo:7</span>
+    <span class="nb">container_name</span><span class="op">:</span> <span class="st">football_db</span>
+    <span class="nb">ports</span><span class="op">:</span>
+      <span class="op">-</span> <span class="st">"27017:27017"</span>
+    <span class="nb">volumes</span><span class="op">:</span>
+      <span class="op">-</span> <span class="st">mongo_data:/data/db</span>
+
+  <span class="nm">app</span><span class="op">:</span>
+    <span class="nb">build</span><span class="op">:</span> <span class="st">.</span>
+    <span class="nb">container_name</span><span class="op">:</span> <span class="st">football_app</span>
+    <span class="nb">ports</span><span class="op">:</span>
+      <span class="op">-</span> <span class="st">"8501:8501"</span>
+    <span class="nb">depends_on</span><span class="op">:</span>
+      <span class="op">-</span> <span class="st">mongodb</span>
+    <span class="nb">environment</span><span class="op">:</span>
+      <span class="op">-</span> <span class="st">MONGO_URI=mongodb://mongodb:27017</span>
+      <span class="op">-</span> <span class="st">FOOTBALL_API_TOKEN=${FOOTBALL_API_TOKEN}</span>
+    <span class="nb">volumes</span><span class="op">:</span>
+      <span class="op">-</span> <span class="st">.:/app</span>
+
+<span class="nb">volumes</span><span class="op">:</span>
+  <span class="nm">mongo_data</span><span class="op">:</span>
+</pre></div>
+
+  <table class="exp-table">
+    <tr><th>Line</th><th>Code</th><th>Explanation</th></tr>
+    <tr><td>1</td><td>version: "3.8"</td><td>Specifies which version of the docker-compose file format to use. Version 3.8 supports all modern Docker features. Think of it like saying "use Word 2019 format" for a document.</td></tr>
+    <tr><td>3</td><td>services:</td><td>This keyword opens the section where you list all the containers you want Docker to run. Each indented item below is one container (service).</td></tr>
+    <tr><td>5</td><td>mongodb:</td><td>The name we give to our first container. We can use this name later to refer to this container from other containers (like an internal hostname).</td></tr>
+    <tr><td>6</td><td>image: mongo:7</td><td>Tells Docker to download and use the official MongoDB image version 7 from Docker Hub (Docker's app store). You don't need to install MongoDB — Docker downloads and runs it for you.</td></tr>
+    <tr><td>7</td><td>container_name: football_db</td><td>The friendly name shown in Docker Desktop. Without this, Docker generates a random name like "loving_newton".</td></tr>
+    <tr><td>9</td><td>"27017:27017"</td><td>Port mapping: format is "your-machine-port:container-port". This makes MongoDB accessible from outside the container. 27017 is MongoDB's default port — like how 80 is the default for websites.</td></tr>
+    <tr><td>11</td><td>mongo_data:/data/db</td><td>Connects a persistent "volume" (a special Docker storage area) to the folder inside the container where MongoDB saves its data. Without this, ALL your data disappears every time you stop the container.</td></tr>
+    <tr><td>14</td><td>build: .</td><td>Instead of using a pre-made image, Docker should BUILD an image using the Dockerfile in the current directory (the dot "." means "here"). This is how your Python code gets containerized.</td></tr>
+    <tr><td>17</td><td>"8501:8501"</td><td>Exposes Streamlit's port. When you open localhost:8501 in your browser, Docker forwards that to port 8501 inside the app container where Streamlit is listening.</td></tr>
+    <tr><td>19</td><td>depends_on: mongodb</td><td>Tells Docker: "don't start the app container until MongoDB is running." Without this, the app might try to connect to the database before it's ready and crash.</td></tr>
+    <tr><td>21</td><td>MONGO_URI=mongodb://mongodb:27017</td><td>Sets an environment variable inside the app container. Crucially: the hostname is "mongodb" (the service name), NOT "localhost". Inside Docker, containers use each other's service names as hostnames.</td></tr>
+    <tr><td>22</td><td>${FOOTBALL_API_TOKEN}</td><td>The ${} syntax reads a variable from your .env file on your machine and passes its value into the container. This keeps your secret token out of the code.</td></tr>
+    <tr><td>24</td><td>.:/app</td><td>Mounts your local project folder into the container at /app. This means any file you edit on your machine is instantly available inside the container — no need to rebuild when you change code.</td></tr>
+    <tr><td>27</td><td>mongo_data:</td><td>Declares the named volume used above. Docker creates and manages this storage area. Data stored here survives container restarts and deletions.</td></tr>
+  </table>
+</div>
+
+<!-- ═══════════════════ FILE 2: Dockerfile ═══════════════════ -->
+<div class="file-section">
+  <div class="file-header green">
+    <span class="file-icon">📦</span>
+    <div class="file-title">
+      <h2>Dockerfile</h2>
+      <p>Blueprint for building the Python application container image</p>
+    </div>
+  </div>
+
+  <div class="purpose">
+    <strong>Purpose</strong>
+    <p>A Dockerfile is a recipe. It tells Docker how to build a container image for your app —
+    starting from a base Python installation, adding your code and libraries.
+    Think of it like a setup guide that Docker follows automatically.</p>
+  </div>
+
+  <div class="code-block"><pre>
+<span class="kw">FROM</span> <span class="st">python:3.12-slim</span>
+
+<span class="kw">WORKDIR</span> <span class="st">/app</span>
+
+<span class="kw">COPY</span> <span class="st">requirements.txt .</span>
+
+<span class="kw">RUN</span> <span class="fn">pip install</span> <span class="st">-r requirements.txt</span>
+
+<span class="kw">COPY</span> <span class="st">. .</span>
+
+<span class="kw">EXPOSE</span> <span class="nm">8501</span>
+
+<span class="kw">CMD</span> <span class="op">[</span><span class="st">"python"</span><span class="op">,</span> <span class="st">"-m"</span><span class="op">,</span> <span class="st">"streamlit"</span><span class="op">,</span> <span class="st">"run"</span><span class="op">,</span> <span class="st">"app/app.py"</span><span class="op">,</span> <span class="st">"--server.address=0.0.0.0"</span><span class="op">]</span>
+</pre></div>
+
+  <table class="exp-table">
+    <tr><th>Line</th><th>Code</th><th>Explanation</th></tr>
+    <tr><td>1</td><td>FROM python:3.12-slim</td><td>Every Dockerfile starts with FROM — it picks the base image to build on top of. "python:3.12-slim" is an official Docker image with Python 3.12 already installed. "slim" means it's a minimal Linux installation (smaller = faster to download and more secure).</td></tr>
+    <tr><td>3</td><td>WORKDIR /app</td><td>Sets the working directory inside the container. All subsequent commands (COPY, RUN, CMD) happen relative to this folder. If /app doesn't exist, Docker creates it. It's like doing "cd /app" but permanent for the container.</td></tr>
+    <tr><td>5</td><td>COPY requirements.txt .</td><td>Copies the requirements.txt file from your machine into the container's current directory (/app). The dot "." at the end means "copy to the current WORKDIR". We copy this BEFORE the rest of the code for a smart reason — see tip below.</td></tr>
+    <tr><td>7</td><td>RUN pip install -r requirements.txt</td><td>RUN executes a shell command during the build process. This installs all Python libraries listed in requirements.txt. This step is cached by Docker — if requirements.txt doesn't change, Docker reuses the cached result instead of re-downloading everything.</td></tr>
+    <tr><td>9</td><td>COPY . .</td><td>Copies everything from your project folder into /app in the container. The first dot is "source" (your machine), the second is "destination" (container). This happens AFTER pip install so that changing your Python code doesn't invalidate the pip cache.</td></tr>
+    <tr><td>11</td><td>EXPOSE 8501</td><td>Documents that this container listens on port 8501. It's informational — the actual port binding is done in docker-compose.yml. Think of it like labeling a door "entrance".</td></tr>
+    <tr><td>13</td><td>CMD [...]</td><td>The command that runs when the container starts. CMD uses JSON array format. This is equivalent to running: python -m streamlit run app/app.py --server.address=0.0.0.0. The --server.address=0.0.0.0 flag is critical — without it Streamlit only accepts connections from inside the container and you can't reach it from your browser.</td></tr>
+  </table>
+
+  <div class="tip">
+    <span class="icon">💡</span>
+    <div class="text">
+      <strong>Why copy requirements.txt before the rest of the code?</strong>
+      <p>Docker builds images in layers and caches each layer. If you change a Python file,
+      Docker only rebuilds from that changed layer onwards. By copying requirements.txt first
+      and running pip install before copying your code, Docker can reuse the "pip install" layer
+      (which takes ~2 minutes) even when you change your Python files. This makes rebuilds much faster.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ FILE 3: .env & requirements.txt ═══════════════════ -->
+<div class="file-section">
+  <div class="file-header orange">
+    <span class="file-icon">⚙️</span>
+    <div class="file-title">
+      <h2>.env &amp; requirements.txt</h2>
+      <p>Configuration files — secrets and dependency declarations</p>
+    </div>
+  </div>
+
+  <h3>.env — Secret Configuration</h3>
+  <div class="code-block"><pre>
+<span class="nb">FOOTBALL_API_TOKEN</span><span class="op">=</span><span class="st">your_token_here</span>
+<span class="nb">MONGO_URI</span><span class="op">=</span><span class="st">mongodb://localhost:27017</span>
+</pre></div>
+
+  <table class="exp-table">
+    <tr><th>Line</th><th>Code</th><th>Explanation</th></tr>
+    <tr><td>1</td><td>FOOTBALL_API_TOKEN=...</td><td>Your private API key from football-data.org. By putting it in .env instead of in the code, you can share your code without exposing your secret. The python-dotenv library reads this file and makes the value available via os.getenv("FOOTBALL_API_TOKEN") in Python.</td></tr>
+    <tr><td>2</td><td>MONGO_URI=mongodb://...</td><td>The connection address for MongoDB. Format: mongodb://hostname:port. "localhost" means "this same machine" and 27017 is MongoDB's default port. When running inside Docker, docker-compose.yml overrides this with "mongodb://mongodb:27017" automatically.</td></tr>
+  </table>
+
+  <h3>requirements.txt — Python Dependencies</h3>
+  <div class="code-block"><pre>
+<span class="st">requests</span><span class="op">>=</span><span class="nm">2.32.3</span>
+<span class="st">pymongo</span><span class="op">>=</span><span class="nm">4.10.1</span>
+<span class="st">streamlit</span><span class="op">>=</span><span class="nm">1.40.1</span>
+<span class="st">apscheduler</span><span class="op">>=</span><span class="nm">3.10.4</span>
+<span class="st">pandas</span><span class="op">>=</span><span class="nm">2.3.0</span>
+<span class="st">plotly</span><span class="op">>=</span><span class="nm">5.24.1</span>
+<span class="st">python-dotenv</span><span class="op">>=</span><span class="nm">1.0.1</span>
+</pre></div>
+
+  <table class="exp-table">
+    <tr><th>Line</th><th>Code</th><th>Explanation</th></tr>
+    <tr><td>1</td><td>requests</td><td>The most popular Python library for making HTTP requests (like opening a URL). Used in fetcher.py to call the football-data.org API. Without it you'd have to use Python's built-in urllib which is much harder to use.</td></tr>
+    <tr><td>2</td><td>pymongo</td><td>The official MongoDB driver for Python. Lets your Python code connect to MongoDB, save documents, and query them. "Driver" means a library that speaks the database's protocol.</td></tr>
+    <tr><td>3</td><td>streamlit</td><td>Turns Python scripts into interactive web apps. You write Python — Streamlit generates the HTML, CSS, and JavaScript automatically. No frontend experience needed.</td></tr>
+    <tr><td>4</td><td>apscheduler</td><td>Advanced Python Scheduler — a library that runs Python functions on a schedule (daily, hourly, at a specific time). Used in scheduler.py to auto-refresh data every morning.</td></tr>
+    <tr><td>5</td><td>pandas</td><td>The standard Python library for working with tabular data. Provides the DataFrame — a table structure with powerful filtering, sorting, and transformation. Used to prepare data for display in Streamlit.</td></tr>
+    <tr><td>6</td><td>plotly</td><td>Interactive charting library. Creates bar charts, pie charts, scatter plots, etc. that users can hover over, zoom, and interact with in the browser. Integrates seamlessly with Streamlit.</td></tr>
+    <tr><td>7</td><td>python-dotenv</td><td>Reads your .env file and loads the variables into Python's environment (os.environ). One call to load_dotenv() at the top of a file makes all .env values available via os.getenv().</td></tr>
+  </table>
+</div>
+
+<!-- ═══════════════════ FILE 4: fetcher.py ═══════════════════ -->
+<div class="file-section">
+  <div class="file-header blue">
+    <span class="file-icon">📡</span>
+    <div class="file-title">
+      <h2>fetcher/fetcher.py</h2>
+      <p>Downloads live data from football-data.org and saves it to MongoDB</p>
+    </div>
+  </div>
+
+  <div class="purpose">
+    <strong>Purpose</strong>
+    <p>This file is the data collector. It makes HTTP requests to the football API (like a browser loading a webpage, but in code), reads the JSON response, and stores it in MongoDB. Think of it as a robot that reads a football website every morning and saves everything to your database.</p>
+  </div>
+
+  <div class="code-block"><pre>
+<span class="kw">import</span> <span class="nb">os</span>
+<span class="kw">import</span> <span class="nb">requests</span>
+<span class="kw">from</span> <span class="nb">pymongo</span> <span class="kw">import</span> <span class="fn">MongoClient</span>
+<span class="kw">from</span> <span class="nb">dotenv</span> <span class="kw">import</span> <span class="fn">load_dotenv</span>
+
+<span class="fn">load_dotenv</span><span class="op">()</span>
+
+<span class="nb">API_TOKEN</span> <span class="op">=</span> <span class="fn">os.getenv</span><span class="op">(</span><span class="st">"FOOTBALL_API_TOKEN"</span><span class="op">)</span>
+<span class="nb">MONGO_URI</span> <span class="op">=</span> <span class="fn">os.getenv</span><span class="op">(</span><span class="st">"MONGO_URI"</span><span class="op">,</span> <span class="st">"mongodb://localhost:27017"</span><span class="op">)</span>
+<span class="nb">BASE_URL</span> <span class="op">=</span> <span class="st">"https://api.football-data.org/v4"</span>
+<span class="nb">HEADERS</span> <span class="op">=</span> <span class="op">{</span><span class="st">"X-Auth-Token"</span><span class="op">:</span> <span class="nb">API_TOKEN</span><span class="op">}</span>
+
+<span class="nb">client</span> <span class="op">=</span> <span class="fn">MongoClient</span><span class="op">(</span><span class="nb">MONGO_URI</span><span class="op">)</span>
+<span class="nb">db</span> <span class="op">=</span> <span class="nb">client</span><span class="op">[</span><span class="st">"football_analytics"</span><span class="op">]</span>
+
+<span class="kw">def</span> <span class="fn">fetch_standings</span><span class="op">():</span>
+    <span class="nb">response</span> <span class="op">=</span> <span class="nb">requests</span><span class="op">.</span><span class="fn">get</span><span class="op">(</span><span class="st">f"</span><span class="op">{</span><span class="nb">BASE_URL</span><span class="op">}</span><span class="st">/competitions/PL/standings"</span><span class="op">,</span> <span class="nb">headers</span><span class="op">=</span><span class="nb">HEADERS</span><span class="op">)</span>
+    <span class="nb">response</span><span class="op">.</span><span class="fn">raise_for_status</span><span class="op">()</span>
+    <span class="nb">data</span> <span class="op">=</span> <span class="nb">response</span><span class="op">.</span><span class="fn">json</span><span class="op">()</span>
+    <span class="nb">standings</span> <span class="op">=</span> <span class="nb">data</span><span class="op">[</span><span class="st">"standings"</span><span class="op">][</span><span class="nm">0</span><span class="op">][</span><span class="st">"table"</span><span class="op">]</span>
+    <span class="nb">db</span><span class="op">.</span><span class="nb">standings</span><span class="op">.</span><span class="fn">drop</span><span class="op">()</span>
+    <span class="nb">db</span><span class="op">.</span><span class="nb">standings</span><span class="op">.</span><span class="fn">insert_many</span><span class="op">(</span><span class="nb">standings</span><span class="op">)</span>
+    <span class="fn">print</span><span class="op">(</span><span class="st">f"Saved </span><span class="op">{</span><span class="fn">len</span><span class="op">(</span><span class="nb">standings</span><span class="op">)}</span><span class="st"> team standings"</span><span class="op">)</span>
+
+<span class="kw">def</span> <span class="fn">fetch_matches</span><span class="op">():</span>
+    <span class="nb">response</span> <span class="op">=</span> <span class="nb">requests</span><span class="op">.</span><span class="fn">get</span><span class="op">(</span><span class="st">f"</span><span class="op">{</span><span class="nb">BASE_URL</span><span class="op">}</span><span class="st">/competitions/PL/matches"</span><span class="op">,</span> <span class="nb">headers</span><span class="op">=</span><span class="nb">HEADERS</span><span class="op">)</span>
+    <span class="nb">response</span><span class="op">.</span><span class="fn">raise_for_status</span><span class="op">()</span>
+    <span class="nb">matches</span> <span class="op">=</span> <span class="nb">response</span><span class="op">.</span><span class="fn">json</span><span class="op">()[</span><span class="st">"matches"</span><span class="op">]</span>
+    <span class="nb">db</span><span class="op">.</span><span class="nb">matches</span><span class="op">.</span><span class="fn">drop</span><span class="op">()</span>
+    <span class="nb">db</span><span class="op">.</span><span class="nb">matches</span><span class="op">.</span><span class="fn">insert_many</span><span class="op">(</span><span class="nb">matches</span><span class="op">)</span>
+    <span class="fn">print</span><span class="op">(</span><span class="st">f"Saved </span><span class="op">{</span><span class="fn">len</span><span class="op">(</span><span class="nb">matches</span><span class="op">)}</span><span class="st"> matches"</span><span class="op">)</span>
+
+<span class="kw">def</span> <span class="fn">fetch_scorers</span><span class="op">():</span>
+    <span class="nb">response</span> <span class="op">=</span> <span class="nb">requests</span><span class="op">.</span><span class="fn">get</span><span class="op">(</span><span class="st">f"</span><span class="op">{</span><span class="nb">BASE_URL</span><span class="op">}</span><span class="st">/competitions/PL/scorers?limit=20"</span><span class="op">,</span> <span class="nb">headers</span><span class="op">=</span><span class="nb">HEADERS</span><span class="op">)</span>
+    <span class="nb">response</span><span class="op">.</span><span class="fn">raise_for_status</span><span class="op">()</span>
+    <span class="nb">scorers</span> <span class="op">=</span> <span class="nb">response</span><span class="op">.</span><span class="fn">json</span><span class="op">()[</span><span class="st">"scorers"</span><span class="op">]</span>
+    <span class="nb">db</span><span class="op">.</span><span class="nb">scorers</span><span class="op">.</span><span class="fn">drop</span><span class="op">()</span>
+    <span class="nb">db</span><span class="op">.</span><span class="nb">scorers</span><span class="op">.</span><span class="fn">insert_many</span><span class="op">(</span><span class="nb">scorers</span><span class="op">)</span>
+    <span class="fn">print</span><span class="op">(</span><span class="st">f"Saved </span><span class="op">{</span><span class="fn">len</span><span class="op">(</span><span class="nb">scorers</span><span class="op">)}</span><span class="st"> scorers"</span><span class="op">)</span>
+
+<span class="kw">def</span> <span class="fn">fetch_all</span><span class="op">():</span>
+    <span class="fn">fetch_standings</span><span class="op">()</span>
+    <span class="fn">fetch_matches</span><span class="op">()</span>
+    <span class="fn">fetch_scorers</span><span class="op">()</span>
+
+<span class="kw">if</span> <span class="nb">__name__</span> <span class="op">==</span> <span class="st">"__main__"</span><span class="op">:</span>
+    <span class="fn">fetch_all</span><span class="op">()</span>
+</pre></div>
+
+  <h3>Imports &amp; Setup (lines 1–14)</h3>
+  <table class="exp-table">
+    <tr><th>Line</th><th>Code</th><th>Explanation</th></tr>
+    <tr><td>1</td><td>import os</td><td>os is a built-in Python module (no installation needed). We use it specifically for os.getenv() which reads environment variables — values set in your .env file or in the system.</td></tr>
+    <tr><td>2</td><td>import requests</td><td>The requests library (installed via pip) makes HTTP calls simple. An HTTP call is what happens when your browser loads a webpage — we do the same thing but from Python code to get data from the API.</td></tr>
+    <tr><td>3</td><td>from pymongo import MongoClient</td><td>"from X import Y" imports only the specific thing Y from library X. MongoClient is the class that creates a connection to your MongoDB database. A "class" is a blueprint — MongoClient() creates an actual connection object from that blueprint.</td></tr>
+    <tr><td>4</td><td>from dotenv import load_dotenv</td><td>Imports the load_dotenv function from the python-dotenv library. This function reads your .env file and loads all KEY=VALUE pairs into the process environment so os.getenv() can find them.</td></tr>
+    <tr><td>6</td><td>load_dotenv()</td><td>Actually executes the loading. Must be called before any os.getenv() calls. Without this line, os.getenv("FOOTBALL_API_TOKEN") would return None because Python hasn't read the .env file yet.</td></tr>
+    <tr><td>8</td><td>os.getenv("FOOTBALL_API_TOKEN")</td><td>Reads the value of FOOTBALL_API_TOKEN from the environment (loaded from .env by load_dotenv). Returns the string value — your API token. This keeps secrets out of your source code.</td></tr>
+    <tr><td>9</td><td>os.getenv("MONGO_URI", "mongodb://...")</td><td>The second argument is a default value. If MONGO_URI is not set anywhere, Python uses "mongodb://localhost:27017" automatically. Inside Docker, docker-compose.yml sets MONGO_URI to use the container hostname.</td></tr>
+    <tr><td>10</td><td>BASE_URL = "https://..."</td><td>Stores the API root URL as a constant. We reuse this in every API call instead of repeating the full URL. Convention: UPPERCASE names indicate constants (values that never change).</td></tr>
+    <tr><td>11</td><td>HEADERS = {"X-Auth-Token": ...}</td><td>A Python dictionary containing the HTTP headers to send with every API request. The football-data.org API requires your token in a header called "X-Auth-Token" — this is how it verifies you're a registered user.</td></tr>
+    <tr><td>13</td><td>client = MongoClient(MONGO_URI)</td><td>Creates a connection to MongoDB. MongoClient() takes the connection string and returns a client object. This is like opening a phone line to the database — you can now send it commands.</td></tr>
+    <tr><td>14</td><td>db = client["football_analytics"]</td><td>Selects (or creates) a database named "football_analytics" inside MongoDB. MongoDB creates the database automatically the first time you insert data. Think of it as choosing which filing cabinet to use.</td></tr>
+  </table>
+
+  <h3>fetch_standings() function</h3>
+  <table class="exp-table">
+    <tr><th>Line</th><th>Code</th><th>Explanation</th></tr>
+    <tr><td>—</td><td>def fetch_standings():</td><td>"def" defines a new function. Functions are reusable blocks of code with a name. "fetch_standings" describes what this function does — good naming makes code readable. The parentheses () hold parameters (inputs) — this function needs none.</td></tr>
+    <tr><td>—</td><td>requests.get(url, headers=...)</td><td>Sends an HTTP GET request to the URL — exactly like your browser loading a page. The "headers" parameter attaches our authentication token. Returns a "response" object containing the server's reply.</td></tr>
+    <tr><td>—</td><td>f"{BASE_URL}/competitions/PL/standings"</td><td>An f-string (formatted string). The f prefix lets you embed variables inside {} directly in the string. This produces: "https://api.football-data.org/v4/competitions/PL/standings". "PL" is the Premier League's competition code.</td></tr>
+    <tr><td>—</td><td>response.raise_for_status()</td><td>Checks if the request succeeded. HTTP responses include a status code: 200=OK, 401=wrong token, 429=too many requests, 500=server error. raise_for_status() throws an exception (stops the program with an error message) if the status isn't 200. Better to crash loudly than fail silently.</td></tr>
+    <tr><td>—</td><td>response.json()</td><td>The API returns data as a JSON string (text). .json() parses that string into a Python dictionary. After this call, "data" is a normal Python dict you can work with using data["key"] syntax.</td></tr>
+    <tr><td>—</td><td>data["standings"][0]["table"]</td><td>Navigates the nested JSON structure. The API returns three standing types: overall [0], home [1], away [2]. We want [0] (overall). The "table" key inside that gives us the list of 20 team rows.</td></tr>
+    <tr><td>—</td><td>db.standings.drop()</td><td>Deletes all documents in the "standings" collection. We do this before re-inserting to avoid duplicates. Each time we fetch, we want fresh data, not the old data plus the new data combined.</td></tr>
+    <tr><td>—</td><td>db.standings.insert_many(standings)</td><td>"standings" is now a Python list of 20 dicts. insert_many() saves all of them to MongoDB in one operation. MongoDB assigns each document a unique _id automatically.</td></tr>
+  </table>
+
+  <div class="concept">
+    <span class="icon">📘</span>
+    <div class="text">
+      <strong>What is JSON?</strong>
+      <p>JSON (JavaScript Object Notation) is a text format for structured data. It looks like Python dictionaries and lists.
+      Example: <code>{"team": {"name": "Arsenal"}, "points": 45, "won": 14}</code>.
+      APIs return JSON because it's easy to send as text over the internet and easy to parse in any programming language.</p>
+    </div>
+  </div>
+
+  <h3>if __name__ == "__main__"</h3>
+  <table class="exp-table">
+    <tr><th>Line</th><th>Code</th><th>Explanation</th></tr>
+    <tr><td>—</td><td>if __name__ == "__main__":</td><td>Python sets a special variable __name__ to "__main__" when a file is run directly (python fetcher.py). When another file imports from fetcher.py, __name__ is set to "fetcher" instead. This block only runs in the first case, preventing fetch_all() from running accidentally when the file is imported.</td></tr>
+  </table>
+</div>
+
+<!-- ═══════════════════ FILE 5: predictor.py ═══════════════════ -->
+<div class="file-section">
+  <div class="file-header purple">
+    <span class="file-icon">🔮</span>
+    <div class="file-title">
+      <h2>predictor/predictor.py</h2>
+      <p>Monte Carlo simulation — estimates each team's probability of winning the league</p>
+    </div>
+  </div>
+
+  <div class="purpose">
+    <strong>What is Monte Carlo Simulation?</strong>
+    <p>Named after the famous casino in Monaco, Monte Carlo simulation uses random sampling to solve problems.
+    We can't know who will win each future match — but we can estimate probabilities and simulate the rest of the season thousands of times.
+    If Arsenal wins in 6,200 out of 10,000 simulated seasons → Arsenal has a 62% chance of winning the title.</p>
+  </div>
+
+  <div class="code-block"><pre>
+<span class="nb">SIMULATIONS</span> <span class="op">=</span> <span class="nm">10_000</span>
+
+<span class="kw">def</span> <span class="fn">get_team_strengths</span><span class="op">():</span>
+    <span class="nb">standings</span> <span class="op">=</span> <span class="fn">list</span><span class="op">(</span><span class="nb">db</span><span class="op">.</span><span class="nb">standings</span><span class="op">.</span><span class="fn">find</span><span class="op">({},</span> <span class="op">{</span><span class="st">"_id"</span><span class="op">:</span> <span class="nm">0</span><span class="op">}))</span>
+    <span class="nb">strengths</span> <span class="op">=</span> <span class="op">{}</span>
+    <span class="kw">for</span> <span class="nb">row</span> <span class="kw">in</span> <span class="nb">standings</span><span class="op">:</span>
+        <span class="nb">team_name</span> <span class="op">=</span> <span class="nb">row</span><span class="op">[</span><span class="st">"team"</span><span class="op">][</span><span class="st">"name"</span><span class="op">]</span>
+        <span class="nb">played</span>    <span class="op">=</span> <span class="nb">row</span><span class="op">[</span><span class="st">"playedGames"</span><span class="op">]</span>
+        <span class="nb">points</span>    <span class="op">=</span> <span class="nb">row</span><span class="op">[</span><span class="st">"points"</span><span class="op">]</span>
+        <span class="nb">gd</span>        <span class="op">=</span> <span class="nb">row</span><span class="op">[</span><span class="st">"goalDifference"</span><span class="op">]</span>
+        <span class="nb">ppg</span>   <span class="op">=</span> <span class="nb">points</span> <span class="op">/</span> <span class="nb">played</span> <span class="kw">if</span> <span class="nb">played</span> <span class="kw">else</span> <span class="nm">0.0</span>
+        <span class="nb">gdpg</span>  <span class="op">=</span> <span class="nb">gd</span> <span class="op">/</span> <span class="nb">played</span> <span class="kw">if</span> <span class="nb">played</span> <span class="kw">else</span> <span class="nm">0.0</span>
+        <span class="nb">form_str</span>     <span class="op">=</span> <span class="nb">row</span><span class="op">.</span><span class="fn">get</span><span class="op">(</span><span class="st">"form"</span><span class="op">)</span> <span class="kw">or</span> <span class="st">""</span>
+        <span class="nb">form_results</span> <span class="op">=</span> <span class="op">[</span><span class="nb">r</span> <span class="kw">for</span> <span class="nb">r</span> <span class="kw">in</span> <span class="nb">form_str</span><span class="op">.</span><span class="fn">split</span><span class="op">(</span><span class="st">","</span><span class="op">)</span> <span class="kw">if</span> <span class="nb">r</span><span class="op">]</span>
+        <span class="nb">form_pts</span> <span class="op">=</span> <span class="fn">sum</span><span class="op">(</span><span class="nm">3</span> <span class="kw">if</span> <span class="nb">r</span><span class="op">==</span><span class="st">"W"</span> <span class="kw">else</span> <span class="nm">1</span> <span class="kw">if</span> <span class="nb">r</span><span class="op">==</span><span class="st">"D"</span> <span class="kw">else</span> <span class="nm">0</span> <span class="kw">for</span> <span class="nb">r</span> <span class="kw">in</span> <span class="nb">form_results</span><span class="op">)</span>
+        <span class="nb">form_avg</span> <span class="op">=</span> <span class="nb">form_pts</span> <span class="op">/</span> <span class="fn">max</span><span class="op">(</span><span class="fn">len</span><span class="op">(</span><span class="nb">form_results</span><span class="op">),</span> <span class="nm">1</span><span class="op">)</span>
+        <span class="nb">strengths</span><span class="op">[</span><span class="nb">team_name</span><span class="op">]</span> <span class="op">=</span> <span class="op">(</span><span class="nb">ppg</span><span class="op">*</span><span class="nm">0.6</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="nb">gdpg</span><span class="op">*</span><span class="nm">0.2</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="nb">form_avg</span><span class="op">*</span><span class="nm">0.2</span><span class="op">)</span>
+    <span class="kw">return</span> <span class="nb">strengths</span>
+
+<span class="kw">def</span> <span class="fn">simulate_match</span><span class="op">(</span><span class="nb">home_strength</span><span class="op">,</span> <span class="nb">away_strength</span><span class="op">):</span>
+    <span class="nb">home_adj</span> <span class="op">=</span> <span class="nb">home_strength</span> <span class="op">+</span> <span class="nm">0.3</span>
+    <span class="nb">total</span>    <span class="op">=</span> <span class="nb">home_adj</span> <span class="op">+</span> <span class="nb">away_strength</span>
+    <span class="kw">if</span> <span class="nb">total</span> <span class="op">==</span> <span class="nm">0</span><span class="op">:</span>
+        <span class="kw">return</span> <span class="nb">random</span><span class="op">.</span><span class="fn">choice</span><span class="op">([</span><span class="st">"H"</span><span class="op">,</span> <span class="st">"D"</span><span class="op">,</span> <span class="st">"A"</span><span class="op">])</span>
+    <span class="nb">p_home</span> <span class="op">=</span> <span class="op">(</span><span class="nb">home_adj</span> <span class="op">/</span> <span class="nb">total</span><span class="op">)</span> <span class="op">*</span> <span class="nm">0.75</span>
+    <span class="nb">p_away</span> <span class="op">=</span> <span class="op">(</span><span class="nb">away_strength</span> <span class="op">/</span> <span class="nb">total</span><span class="op">)</span> <span class="op">*</span> <span class="nm">0.75</span>
+    <span class="nb">p_draw</span> <span class="op">=</span> <span class="nm">1.0</span> <span class="op">-</span> <span class="nb">p_home</span> <span class="op">-</span> <span class="nb">p_away</span>
+    <span class="nb">r</span> <span class="op">=</span> <span class="nb">random</span><span class="op">.</span><span class="fn">random</span><span class="op">()</span>
+    <span class="kw">if</span>   <span class="nb">r</span> <span class="op">&lt;</span> <span class="nb">p_home</span><span class="op">:</span>              <span class="kw">return</span> <span class="st">"H"</span>
+    <span class="kw">elif</span> <span class="nb">r</span> <span class="op">&lt;</span> <span class="nb">p_home</span> <span class="op">+</span> <span class="nb">p_draw</span><span class="op">:</span>    <span class="kw">return</span> <span class="st">"D"</span>
+    <span class="kw">else</span><span class="op">:</span>                          <span class="kw">return</span> <span class="st">"A"</span>
+</pre></div>
+
+  <h3>get_team_strengths() — calculating how good each team is</h3>
+  <table class="exp-table">
+    <tr><th>Line</th><th>Code</th><th>Explanation</th></tr>
+    <tr><td>—</td><td>SIMULATIONS = 10_000</td><td>A constant at the top of the file. 10,000 simulations gives ~1% accuracy (good enough). The underscore _ in 10_000 is a Python readability trick — completely ignored by Python, same as writing 10000. Like writing 10,000 with a comma.</td></tr>
+    <tr><td>—</td><td>db.standings.find({}, {"_id": 0})</td><td>Queries MongoDB. find({}) with empty filter returns ALL documents. The second argument {"_id": 0} is a "projection" — it tells MongoDB which fields to return. 0 means exclude, 1 means include. We exclude _id because MongoDB's internal ID is an object Python can't easily print.</td></tr>
+    <tr><td>—</td><td>list(...)</td><td>MongoDB's find() returns a "cursor" — a lazy iterator that fetches results one by one. Wrapping it in list() forces Python to fetch all results at once into a regular Python list we can loop over multiple times.</td></tr>
+    <tr><td>—</td><td>ppg = points / played if played else 0.0</td><td>A conditional expression (ternary operator). Reads as: "if played is not zero, calculate points/played; otherwise use 0.0". This prevents a ZeroDivisionError at the start of the season when teams have played 0 games.</td></tr>
+    <tr><td>—</td><td>row.get("form") or ""</td><td>.get("form") safely reads the "form" key — returns None if the key doesn't exist, instead of crashing. The "or ''" part means: if .get() returned None (or any falsy value), use an empty string instead.</td></tr>
+    <tr><td>—</td><td>[r for r in form_str.split(",") if r]</td><td>A list comprehension — a compact way to build a list. split(",") turns "W,D,L,W,W" into ["W","D","L","W","W"]. The "if r" filters out empty strings that could appear from trailing commas. Result: a clean list of single-character results.</td></tr>
+    <tr><td>—</td><td>sum(3 if r=="W" else 1 if r=="D" else 0 for r in form_results)</td><td>A generator expression inside sum(). For each result r, it produces a number (3, 1, or 0). sum() adds them all. This is the same as a for loop that accumulates a total, written in one line.</td></tr>
+    <tr><td>—</td><td>(ppg*0.6) + (gdpg*0.2) + (form_avg*0.2)</td><td>The strength formula. We weight three factors: points per game (60% — most reliable indicator), goal difference per game (20% — shows quality beyond just results), recent form (20% — captures current momentum). Weights sum to 1.0.</td></tr>
+  </table>
+
+  <h3>simulate_match() — simulating one game outcome</h3>
+  <table class="exp-table">
+    <tr><th>Line</th><th>Code</th><th>Explanation</th></tr>
+    <tr><td>—</td><td>home_adj = home_strength + 0.3</td><td>Home advantage. In the Premier League, home teams win ~46% of games vs ~29% for away teams. Adding 0.3 to the home team's strength models this statistical reality.</td></tr>
+    <tr><td>—</td><td>total = home_adj + away_strength</td><td>The sum of both teams' adjusted strengths. We use this to calculate each team's share of the total strength, which becomes their win probability.</td></tr>
+    <tr><td>—</td><td>p_home = (home_adj / total) * 0.75</td><td>Home win probability. We divide by total to get the team's proportion (e.g., 0.55), then multiply by 0.75 to leave 25% for draws. In real football ~25% of matches end in draws.</td></tr>
+    <tr><td>—</td><td>p_draw = 1.0 - p_home - p_away</td><td>Draw probability is whatever's left after assigning home and away win probabilities. Since all probabilities must sum to 1.0 (something has to happen), the draw probability fills the gap.</td></tr>
+    <tr><td>—</td><td>r = random.random()</td><td>Generates a random float between 0.0 and 1.0. This is our "dice roll". If p_home=0.5, then about 50% of the time r will be less than 0.5, meaning home team wins about 50% of simulations.</td></tr>
+    <tr><td>—</td><td>if r &lt; p_home: return "H"</td><td>If our random number falls in the home team's probability range, home wins. elif r &lt; p_home + p_draw catches the draw range. Everything else is an away win. Together these three cases cover the full 0.0–1.0 range.</td></tr>
+  </table>
+</div>
+
+<!-- ═══════════════════ FILE 6: scheduler.py ═══════════════════ -->
+<div class="file-section">
+  <div class="file-header orange">
+    <span class="file-icon">⏰</span>
+    <div class="file-title">
+      <h2>scheduler/scheduler.py</h2>
+      <p>Runs the fetcher and predictor automatically every morning at 6am</p>
+    </div>
+  </div>
+
+  <div class="purpose">
+    <strong>Purpose</strong>
+    <p>Instead of manually running python fetcher/fetcher.py after every gameweek, the scheduler runs it for you on a timer. You start it once, leave it running, and your data stays current automatically.</p>
+  </div>
+
+  <div class="code-block"><pre>
+<span class="kw">import</span> <span class="nb">sys</span><span class="op">,</span> <span class="nb">os</span>
+
+<span class="nb">project_root</span> <span class="op">=</span> <span class="nb">os</span><span class="op">.</span><span class="nb">path</span><span class="op">.</span><span class="fn">dirname</span><span class="op">(</span><span class="nb">os</span><span class="op">.</span><span class="nb">path</span><span class="op">.</span><span class="fn">dirname</span><span class="op">(</span><span class="nb">os</span><span class="op">.</span><span class="nb">path</span><span class="op">.</span><span class="fn">abspath</span><span class="op">(</span><span class="nb">__file__</span><span class="op">)))</span>
+<span class="nb">sys</span><span class="op">.</span><span class="nb">path</span><span class="op">.</span><span class="fn">insert</span><span class="op">(</span><span class="nm">0</span><span class="op">,</span> <span class="nb">project_root</span><span class="op">)</span>
+
+<span class="kw">from</span> <span class="nb">apscheduler.schedulers.blocking</span> <span class="kw">import</span> <span class="fn">BlockingScheduler</span>
+<span class="kw">from</span> <span class="nb">fetcher.fetcher</span> <span class="kw">import</span> <span class="fn">fetch_all</span>
+<span class="kw">from</span> <span class="nb">predictor.predictor</span> <span class="kw">import</span> <span class="fn">run_simulation</span>
+
+<span class="kw">def</span> <span class="fn">daily_update</span><span class="op">():</span>
+    <span class="fn">print</span><span class="op">(</span><span class="st">"Starting daily update..."</span><span class="op">)</span>
+    <span class="fn">fetch_all</span><span class="op">()</span>
+    <span class="fn">run_simulation</span><span class="op">()</span>
+    <span class="fn">print</span><span class="op">(</span><span class="st">"Daily update complete!"</span><span class="op">)</span>
+
+<span class="nb">scheduler</span> <span class="op">=</span> <span class="fn">BlockingScheduler</span><span class="op">()</span>
+<span class="nb">scheduler</span><span class="op">.</span><span class="fn">add_job</span><span class="op">(</span><span class="nb">daily_update</span><span class="op">,</span> <span class="nb">trigger</span><span class="op">=</span><span class="st">"cron"</span><span class="op">,</span> <span class="nb">hour</span><span class="op">=</span><span class="nm">6</span><span class="op">,</span> <span class="nb">minute</span><span class="op">=</span><span class="nm">0</span><span class="op">)</span>
+
+<span class="fn">print</span><span class="op">(</span><span class="st">"Scheduler running. Updates daily at 6:00 AM."</span><span class="op">)</span>
+<span class="nb">scheduler</span><span class="op">.</span><span class="fn">start</span><span class="op">()</span>
+</pre></div>
+
+  <table class="exp-table">
+    <tr><th>Line</th><th>Code</th><th>Explanation</th></tr>
+    <tr><td>1</td><td>import sys, os</td><td>sys gives us sys.path (where Python looks for modules). os gives us file path tools. Imported together on one line since both are needed for the path setup.</td></tr>
+    <tr><td>3</td><td>os.path.abspath(__file__)</td><td>__file__ is a special Python variable containing the path of the current file. abspath() converts it to a full absolute path (e.g., C:\...\scheduler\scheduler.py).</td></tr>
+    <tr><td>3</td><td>os.path.dirname(...dirname(...))</td><td>dirname() gets the parent folder of a path. One dirname() gives us the scheduler/ folder. Two nested dirnames() give us the project root (football_analytics/). We need the root to import our other modules.</td></tr>
+    <tr><td>4</td><td>sys.path.insert(0, project_root)</td><td>Adds the project root to Python's module search list at position 0 (highest priority). Now when we write "from fetcher.fetcher import fetch_all", Python knows to look in the project root for a folder called "fetcher".</td></tr>
+    <tr><td>6</td><td>BlockingScheduler</td><td>A scheduler that "blocks" — meaning it keeps the script alive and running, waiting for the next job time. If you used BackgroundScheduler instead, the script would finish and exit immediately after setup.</td></tr>
+    <tr><td>9</td><td>def daily_update():</td><td>A regular Python function we define ourselves. The scheduler will call this function at 6am every day. It simply calls fetch_all() then run_simulation() in sequence.</td></tr>
+    <tr><td>14</td><td>scheduler.add_job(..., trigger="cron", hour=6)</td><td>Registers the daily_update function as a job. "cron" trigger means use cron-style scheduling (traditional Unix scheduler format). hour=6, minute=0 means "run at 06:00". Other options: trigger="interval", hours=1 would run every hour.</td></tr>
+    <tr><td>16</td><td>scheduler.start()</td><td>Starts the scheduler. This call never returns — the program sits here, waiting for the clock to reach 6am. When it does, daily_update() runs, then the scheduler waits again for the next day.</td></tr>
+  </table>
+</div>
+
+<!-- ═══════════════════ FILE 7: app.py ═══════════════════ -->
+<div class="file-section">
+  <div class="file-header red">
+    <span class="file-icon">🖥️</span>
+    <div class="file-title">
+      <h2>app/app.py</h2>
+      <p>The Streamlit web dashboard — reads from MongoDB and displays everything in the browser</p>
+    </div>
+  </div>
+
+  <div class="purpose">
+    <strong>Purpose</strong>
+    <p>This is the visual layer of the app. Streamlit turns Python code into a web page automatically — you never write HTML or CSS. Every time a user interacts (clicks a button, changes a filter), Streamlit re-runs the script from top to bottom and updates the page.</p>
+  </div>
+
+  <div class="code-block"><pre>
+<span class="kw">import</span> <span class="nb">streamlit</span> <span class="kw">as</span> <span class="nb">st</span>
+<span class="kw">from</span> <span class="nb">pymongo</span> <span class="kw">import</span> <span class="fn">MongoClient</span>
+<span class="kw">import</span> <span class="nb">pandas</span> <span class="kw">as</span> <span class="nb">pd</span>
+<span class="kw">import</span> <span class="nb">plotly.express</span> <span class="kw">as</span> <span class="nb">px</span>
+
+<span class="nb">st</span><span class="op">.</span><span class="fn">set_page_config</span><span class="op">(</span>
+    <span class="nb">page_title</span><span class="op">=</span><span class="st">"Premier League Analytics"</span><span class="op">,</span>
+    <span class="nb">page_icon</span><span class="op">=</span><span class="st">"⚽"</span><span class="op">,</span>
+    <span class="nb">layout</span><span class="op">=</span><span class="st">"wide"</span>
+<span class="op">)</span>
+
+<span class="op">@</span><span class="nb">st</span><span class="op">.</span><span class="nb">cache_resource</span>
+<span class="kw">def</span> <span class="fn">get_db</span><span class="op">():</span>
+    <span class="nb">client</span> <span class="op">=</span> <span class="fn">MongoClient</span><span class="op">(</span><span class="nb">os</span><span class="op">.</span><span class="fn">getenv</span><span class="op">(</span><span class="st">"MONGO_URI"</span><span class="op">,</span> <span class="st">"mongodb://localhost:27017"</span><span class="op">))</span>
+    <span class="kw">return</span> <span class="nb">client</span><span class="op">[</span><span class="st">"football_analytics"</span><span class="op">]</span>
+
+<span class="nb">db</span> <span class="op">=</span> <span class="fn">get_db</span><span class="op">()</span>
+<span class="nb">page</span> <span class="op">=</span> <span class="nb">st</span><span class="op">.</span><span class="nb">sidebar</span><span class="op">.</span><span class="fn">radio</span><span class="op">(</span><span class="st">"Go to"</span><span class="op">,</span> <span class="op">[</span><span class="st">"Standings"</span><span class="op">,</span> <span class="st">"Matches"</span><span class="op">,</span> <span class="st">"Top Scorers"</span><span class="op">,</span> <span class="st">"Predictions"</span><span class="op">])</span>
+</pre></div>
+
+  <table class="exp-table">
+    <tr><th>Line</th><th>Code</th><th>Explanation</th></tr>
+    <tr><td>1</td><td>import streamlit as st</td><td>"as st" creates an alias — instead of writing streamlit.title() every time, we write st.title(). This is a very common Python pattern for frequently-used libraries (pandas as pd, plotly.express as px).</td></tr>
+    <tr><td>3</td><td>import pandas as pd</td><td>Pandas is imported as "pd" — universal convention. Pandas provides the DataFrame, which is Python's equivalent of an Excel spreadsheet: rows, columns, filtering, sorting, all in memory.</td></tr>
+    <tr><td>4</td><td>import plotly.express as px</td><td>Plotly Express is the high-level interface to Plotly charts. px.bar(), px.line(), px.scatter() create beautiful interactive charts with one line of code.</td></tr>
+    <tr><td>6</td><td>st.set_page_config(...)</td><td>Configures browser-level settings for the page. Must be the FIRST Streamlit call. page_title sets the browser tab title. page_icon sets the favicon (icon in tab). layout="wide" uses the full browser width instead of a narrow centered column.</td></tr>
+    <tr><td>12</td><td>@st.cache_resource</td><td>A decorator (the @ syntax). Decorators modify the function below them. @st.cache_resource tells Streamlit: "run this function once, cache the result, and reuse it on every subsequent call". Without this, a new database connection would be opened on every user interaction.</td></tr>
+    <tr><td>18</td><td>st.sidebar.radio(...)</td><td>Creates a set of radio buttons inside the left sidebar panel. The user clicks one option and "page" holds the selected string. Streamlit re-runs the whole script whenever a widget value changes, so the correct page content is shown automatically.</td></tr>
+  </table>
+
+  <h3>Standings Page</h3>
+  <div class="code-block"><pre>
+<span class="kw">if</span> <span class="nb">page</span> <span class="op">==</span> <span class="st">"Standings"</span><span class="op">:</span>
+    <span class="nb">standings</span> <span class="op">=</span> <span class="fn">list</span><span class="op">(</span><span class="nb">db</span><span class="op">.</span><span class="nb">standings</span><span class="op">.</span><span class="fn">find</span><span class="op">({},</span> <span class="op">{</span><span class="st">"_id"</span><span class="op">:</span> <span class="nm">0</span><span class="op">}))</span>
+    <span class="nb">rows</span> <span class="op">=</span> <span class="op">[]</span>
+    <span class="kw">for</span> <span class="nb">row</span> <span class="kw">in</span> <span class="nb">standings</span><span class="op">:</span>
+        <span class="nb">rows</span><span class="op">.</span><span class="fn">append</span><span class="op">({</span>
+            <span class="st">"Pos"</span><span class="op">:</span>  <span class="nb">row</span><span class="op">[</span><span class="st">"position"</span><span class="op">],</span>
+            <span class="st">"Team"</span><span class="op">:</span> <span class="nb">row</span><span class="op">[</span><span class="st">"team"</span><span class="op">][</span><span class="st">"name"</span><span class="op">],</span>
+            <span class="st">"Pts"</span><span class="op">:</span>  <span class="nb">row</span><span class="op">[</span><span class="st">"points"</span><span class="op">],</span>
+        <span class="op">})</span>
+    <span class="nb">df</span> <span class="op">=</span> <span class="nb">pd</span><span class="op">.</span><span class="fn">DataFrame</span><span class="op">(</span><span class="nb">rows</span><span class="op">)</span>
+    <span class="nb">st</span><span class="op">.</span><span class="fn">dataframe</span><span class="op">(</span><span class="nb">df</span><span class="op">,</span> <span class="nb">use_container_width</span><span class="op">=</span><span class="kw">True</span><span class="op">)</span>
+</pre></div>
+
+  <table class="exp-table">
+    <tr><th>Line</th><th>Code</th><th>Explanation</th></tr>
+    <tr><td>—</td><td>if page == "Standings":</td><td>Since Streamlit reruns the whole script on every interaction, this if/elif chain controls which content is displayed. Only the matching block renders — the rest is skipped.</td></tr>
+    <tr><td>—</td><td>rows = []</td><td>An empty list that we'll fill with dicts. Each dict will become one row in our table. We build this list by looping over the MongoDB documents and picking only the fields we want to display.</td></tr>
+    <tr><td>—</td><td>rows.append({...})</td><td>append() adds one item to the end of a list. We append a dictionary with clean display names ("Pos", "Team", "Pts") — different from MongoDB's internal field names ("position", "team.name", "points").</td></tr>
+    <tr><td>—</td><td>pd.DataFrame(rows)</td><td>Creates a DataFrame (table) from our list of dicts. Pandas uses the dictionary keys as column headers and each dict as a row. This is the standard way to build a DataFrame from scratch.</td></tr>
+    <tr><td>—</td><td>st.dataframe(df, use_container_width=True)</td><td>Renders the DataFrame as an interactive table in the browser. use_container_width=True makes it stretch to fill the available width. Users can click column headers to sort.</td></tr>
+  </table>
+
+  <h3>Predictions Page — key parts</h3>
+  <div class="code-block"><pre>
+<span class="nb">pred_doc</span> <span class="op">=</span> <span class="nb">db</span><span class="op">.</span><span class="nb">predictions</span><span class="op">.</span><span class="fn">find_one</span><span class="op">({},</span> <span class="op">{</span><span class="st">"_id"</span><span class="op">:</span> <span class="nm">0</span><span class="op">})</span>
+<span class="nb">predictions</span> <span class="op">=</span> <span class="nb">pred_doc</span><span class="op">[</span><span class="st">"predictions"</span><span class="op">]</span>
+<span class="nb">filtered</span> <span class="op">=</span> <span class="op">{</span><span class="nb">k</span><span class="op">:</span> <span class="nb">v</span> <span class="kw">for</span> <span class="nb">k</span><span class="op">,</span> <span class="nb">v</span> <span class="kw">in</span> <span class="nb">predictions</span><span class="op">.</span><span class="fn">items</span><span class="op">()</span> <span class="kw">if</span> <span class="nb">v</span> <span class="op">&gt;</span> <span class="nm">0</span><span class="op">}</span>
+<span class="nb">df</span> <span class="op">=</span> <span class="nb">pd</span><span class="op">.</span><span class="fn">DataFrame</span><span class="op">(</span><span class="fn">list</span><span class="op">(</span><span class="nb">filtered</span><span class="op">.</span><span class="fn">items</span><span class="op">()),</span> <span class="nb">columns</span><span class="op">=[</span><span class="st">"Team"</span><span class="op">,</span> <span class="st">"Win %"</span><span class="op">])</span>
+<span class="nb">fig</span> <span class="op">=</span> <span class="nb">px</span><span class="op">.</span><span class="fn">bar</span><span class="op">(</span><span class="nb">df</span><span class="op">,</span> <span class="nb">x</span><span class="op">=</span><span class="st">"Team"</span><span class="op">,</span> <span class="nb">y</span><span class="op">=</span><span class="st">"Win %"</span><span class="op">,</span> <span class="nb">color</span><span class="op">=</span><span class="st">"Win %"</span><span class="op">,</span> <span class="nb">color_continuous_scale</span><span class="op">=</span><span class="st">"RdYlGn"</span><span class="op">)</span>
+<span class="nb">st</span><span class="op">.</span><span class="fn">plotly_chart</span><span class="op">(</span><span class="nb">fig</span><span class="op">,</span> <span class="nb">use_container_width</span><span class="op">=</span><span class="kw">True</span><span class="op">)</span>
+<span class="nb">cols</span> <span class="op">=</span> <span class="nb">st</span><span class="op">.</span><span class="fn">columns</span><span class="op">(</span><span class="nm">3</span><span class="op">)</span>
+<span class="kw">for</span> <span class="nb">i</span><span class="op">,</span> <span class="op">(</span><span class="nb">_</span><span class="op">,</span> <span class="nb">row</span><span class="op">)</span> <span class="kw">in</span> <span class="fn">enumerate</span><span class="op">(</span><span class="nb">df</span><span class="op">.</span><span class="fn">head</span><span class="op">(</span><span class="nm">3</span><span class="op">).</span><span class="fn">iterrows</span><span class="op">()):</span>
+    <span class="kw">with</span> <span class="nb">cols</span><span class="op">[</span><span class="nb">i</span><span class="op">]:</span>
+        <span class="nb">st</span><span class="op">.</span><span class="fn">metric</span><span class="op">(</span><span class="nb">label</span><span class="op">=</span><span class="nb">row</span><span class="op">[</span><span class="st">"Team"</span><span class="op">],</span> <span class="nb">value</span><span class="op">=</span><span class="st">f"</span><span class="op">{</span><span class="nb">row</span><span class="op">[</span><span class="st">'Win %'</span><span class="op">]}</span><span class="st">%"</span><span class="op">)</span>
+</pre></div>
+
+  <table class="exp-table">
+    <tr><th>Line</th><th>Code</th><th>Explanation</th></tr>
+    <tr><td>—</td><td>db.predictions.find_one()</td><td>find_one() returns a single document (or None). We only have one predictions document (we drop and recreate it each time), so this is all we need. More efficient than find() when you only expect one result.</td></tr>
+    <tr><td>—</td><td>{k: v for k, v in predictions.items() if v > 0}</td><td>A dictionary comprehension. predictions.items() gives (key, value) pairs. We rebuild the dict keeping only teams where the win probability v is greater than 0. This removes 15+ teams with 0% chance and makes the chart readable.</td></tr>
+    <tr><td>—</td><td>list(filtered.items())</td><td>items() on a dict gives pairs like [("Arsenal", 42.3), ("Man City", 38.1)]. list() materializes them. Passing this to pd.DataFrame with columns=["Team","Win %"] creates a two-column table.</td></tr>
+    <tr><td>—</td><td>px.bar(df, x="Team", y="Win %", color="Win %", color_continuous_scale="RdYlGn")</td><td>Creates a bar chart. x and y set the axes. color="Win %" colours each bar by its value. "RdYlGn" is a colorscale: low values are Red, medium Yellow, high Green — perfect for probability (low=red danger, high=green safe).</td></tr>
+    <tr><td>—</td><td>st.columns(3)</td><td>Splits the page into 3 equal-width columns. Returns a list of column objects. You use "with cols[i]:" to place content inside a specific column. Used here to show the top 3 teams side by side as a podium.</td></tr>
+    <tr><td>—</td><td>enumerate(df.head(3).iterrows())</td><td>head(3) takes first 3 rows. iterrows() loops row by row, yielding (index, row_data). enumerate() adds a counter i (0, 1, 2) so we can use it as a column index. The underscore _ is the row index which we don't need.</td></tr>
+    <tr><td>—</td><td>with cols[i]:</td><td>A context manager. "with" tells Python: "everything indented under this block belongs inside this column". st.metric() called inside the "with" block renders inside that column.</td></tr>
+    <tr><td>—</td><td>st.metric(label=..., value=...)</td><td>A Streamlit widget that displays a big highlighted number with a label above it — perfect for KPIs and key stats. Shows the team name as label and their win % as the big number.</td></tr>
+  </table>
+</div>
+
+<!-- ═══════════════════ HOW TO RUN ═══════════════════ -->
+<div class="file-section" style="page-break-before: always;">
+  <div class="file-header green">
+    <span class="file-icon">🚀</span>
+    <div class="file-title">
+      <h2>How to Run the Project</h2>
+      <p>Step-by-step from zero to running app</p>
+    </div>
+  </div>
+
+  <table class="exp-table">
+    <tr><th>#</th><th>Command</th><th>What it does</th></tr>
+    <tr><td>1</td><td>docker-compose up --build</td><td>Builds the Python app image (installs all libraries inside Docker) and starts both containers: MongoDB + your app. First time takes ~2 minutes. After that: docker-compose up (no --build needed).</td></tr>
+    <tr><td>2</td><td>Open localhost:8501</td><td>Your browser connects to the Streamlit app running inside the Docker container on port 8501.</td></tr>
+    <tr><td>3</td><td>Click "Refresh Data Now"</td><td>The sidebar button inside the app runs fetcher + predictor to populate the database with live Premier League data.</td></tr>
+    <tr><td>4</td><td>docker-compose down</td><td>Stops both containers cleanly. Your data is preserved in the mongo_data volume.</td></tr>
+    <tr><td>5</td><td>docker-compose up</td><td>Next time you want to use the app. Starts in seconds, data is still there.</td></tr>
+  </table>
+
+  <div class="tip" style="margin-top: 24px;">
+    <span class="icon">🎯</span>
+    <div class="text">
+      <strong>How the pieces connect — the full picture</strong>
+      <p>
+        1. <strong>football-data.org</strong> → provides live Premier League JSON data via API<br>
+        2. <strong>fetcher.py</strong> → downloads it and stores in MongoDB collections (standings, matches, scorers)<br>
+        3. <strong>predictor.py</strong> → reads standings + remaining matches → simulates 10,000 seasons → stores % probabilities<br>
+        4. <strong>scheduler.py</strong> → calls fetcher + predictor automatically every morning<br>
+        5. <strong>app.py</strong> → reads all collections from MongoDB → renders tables and charts in Streamlit<br>
+        6. <strong>Docker</strong> → runs MongoDB and the Python app in isolated containers, bypassing Windows restrictions<br>
+        7. <strong>.env</strong> → keeps your API token secret and separate from code
+      </p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
