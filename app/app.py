@@ -361,8 +361,11 @@ with st.sidebar:
 
 # ── Mobile bottom nav (rendered on every page) ───────────────────────────────
 _nav_links = "".join(
-    f'<button onclick="window.parent.location.href=\'?page={p}\'" class="{"act" if page == p else ""}">'
+    f'<form method="get" style="display:contents">'
+    f'<input type="hidden" name="page" value="{p}">'
+    f'<button type="submit" class="{"act" if page == p else ""}">'
     f'<span class="ni">{NAV_ICONS[p]}</span>{p}</button>'
+    f'</form>'
     for p in PAGES
 )
 st.markdown(f'<nav class="mob-nav">{_nav_links}</nav>', unsafe_allow_html=True)
